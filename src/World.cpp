@@ -423,7 +423,13 @@ cWorld::cWorld(
 	m_SimulatorManager->RegisterSimulator(m_FireSimulator.get(), 1);
 
 	m_Storage.Initialize(*this, m_StorageSchema, m_StorageCompressionFactor);
-	m_Generator.Initialize(m_GeneratorCallbacks, m_GeneratorCallbacks, IniFile);
+
+	int num_procs = omp_get_num_procs();
+	for (int i = 0; i < num_procs; i++)
+	{
+		m_Generators.emplace_back();
+		m_Generators.back().Initialize(m_GeneratorCallbacks, m_GeneratorCallbacks, IniFile);
+	}
 
 	m_MapManager.LoadMapData();
 
@@ -686,7 +692,10 @@ void cWorld::Start()
 {
 	m_Lighting.Start();
 	m_Storage.Start();
-	m_Generator.Start();
+	for (auto i = m_Generators.begin(); i != m_Generators.end(); i++)
+	{
+		i->Start();
+	}
 	m_ChunkSender.Start();
 	m_TickThread.Start();
 }
@@ -979,7 +988,10 @@ void cWorld::Stop(cDeadlockDetect & a_DeadlockDetect)
 
 	m_TickThread.Stop();
 	m_Lighting.Stop();
-	m_Generator.Stop();
+	for (auto i = m_Generators.begin(); i != m_Generators.end(); i++)
+	{
+		i->Stop();
+	}
 	m_ChunkSender.Stop();
 	m_Storage.Stop();  // Waits for thread to finish
 
@@ -1473,7 +1485,7 @@ bool cWorld::GrowTree(const Vector3i a_BlockPos)
 
 bool cWorld::GrowTreeFromSapling(Vector3i a_BlockPos)
 {
-	cNoise Noise(m_Generator.GetSeed());
+	cNoise Noise(GetSeed());
 	sSetBlockVector Logs, Other;
 	auto WorldAge = static_cast<int>(m_WorldTickAge.count() & 0xffffffff);
 	auto SaplingMeta = GetBlockMeta(a_BlockPos);
@@ -1602,7 +1614,7 @@ bool cWorld::GetLargeTreeAdjustment(Vector3i & a_BlockPos, NIBBLETYPE a_Meta)
 
 bool cWorld::GrowTreeByBiome(const Vector3i a_BlockPos)
 {
-	cNoise Noise(m_Generator.GetSeed());
+	cNoise Noise(GetSeed());
 	sSetBlockVector Logs, Other;
 	auto seq = static_cast<int>(m_WorldTickAge.count() & 0xffffffff);
 	GetTreeImageByBiome(a_BlockPos, Noise, seq, GetBiomeAt(a_BlockPos.x, a_BlockPos.z), Logs, Other);
@@ -2644,7 +2656,7 @@ bool cWorld::SetTrapdoorOpen(int a_BlockX, int a_BlockY, int a_BlockZ, bool a_Op
 void cWorld::RegenerateChunk(int a_ChunkX, int a_ChunkZ)
 {
 	m_ChunkMap.MarkChunkRegenerating(a_ChunkX, a_ChunkZ);
-	m_Generator.QueueGenerateChunk({a_ChunkX, a_ChunkZ}, true);
+	GetGenerator().QueueGenerateChunk({a_ChunkX, a_ChunkZ}, true);
 }
 
 

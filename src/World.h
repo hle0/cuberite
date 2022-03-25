@@ -756,7 +756,15 @@ public:
 	void GetChunkStats(int & a_NumValid, int & a_NumDirty, int & a_NumInLightingQueue);
 
 	// Various queues length queries (cannot be const, they lock their CS):
-	inline size_t GetGeneratorQueueLength  (void) { return m_Generator.GetQueueLength();   }    // tolua_export
+	inline size_t GetGeneratorQueueLength  (void)
+	{
+		size_t length = 0;
+		for (auto i = m_Generators.begin(); i != m_Generators.end(); i++)
+		{
+			length += i->GetQueueLength();
+		}
+		return length;
+	}    // tolua_export
 	inline size_t GetLightingQueueLength   (void) { return m_Lighting.GetQueueLength();    }    // tolua_export
 	inline size_t GetStorageLoadQueueLength(void) { return m_Storage.GetLoadQueueLength(); }    // tolua_export
 	inline size_t GetStorageSaveQueueLength(void) { return m_Storage.GetSaveQueueLength(); }    // tolua_export
@@ -836,11 +844,37 @@ public:
 	virtual bool IsWeatherWetAtXYZ(Vector3i a_Position) override;
 
 	/** Returns the seed of the world. */
-	int GetSeed(void) { return m_Generator.GetSeed(); }
+	int GetSeed(void) { return m_Generators.front().GetSeed(); }
 
 	// tolua_end
 
-	cChunkGeneratorThread & GetGenerator(void) { return m_Generator; }
+	// Return the generator with the least amount of chunks in its queue
+	cChunkGeneratorThread & GetGenerator(void)
+	{
+		// Basically guaranteed to never be this big
+		size_t lowestLength = 999999999;
+		cChunkGeneratorThread *lowest;
+
+		for (auto i = m_Generators.begin(); i != m_Generators.end(); i++)
+		{
+			cChunkGeneratorThread * gen = &*i;
+			size_t length = gen->GetQueueLength();
+
+			if (length == 0)
+			{
+				// There will never be a generator with fewer than zero queue items
+				return *gen;
+			}
+			else if (length < lowestLength)
+			{
+				// This one has less chunks than the others
+				lowestLength = length;
+				lowest = gen;
+			}
+		}
+
+		return *lowest;
+	}
 	cWorldStorage &   GetStorage  (void) { return m_Storage; }
 	cChunkMap *       GetChunkMap (void) { return &m_ChunkMap; }
 
@@ -1067,7 +1101,7 @@ private:
 	AString m_LinkedEndWorldName;
 
 	/** The thread responsible for generating chunks. */
-	cChunkGeneratorThread m_Generator;
+	std::list<cChunkGeneratorThread> m_Generators;
 
 	cScoreboard      m_Scoreboard;
 	cMapManager      m_MapManager;
