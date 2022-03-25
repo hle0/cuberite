@@ -12,6 +12,7 @@
 cCriticalSection::cCriticalSection():
 	m_RecursionCount(0)
 {
+	omp_init_nest_lock(&m_Mutex);
 }
 
 
@@ -20,7 +21,7 @@ cCriticalSection::cCriticalSection():
 
 void cCriticalSection::Lock()
 {
-	m_Mutex.lock();
+	omp_set_nest_lock(&m_Mutex);
 
 	m_RecursionCount += 1;
 	m_OwningThreadID = std::this_thread::get_id();
@@ -35,7 +36,7 @@ void cCriticalSection::Unlock()
 	ASSERT(IsLockedByCurrentThread());
 	m_RecursionCount -= 1;
 
-	m_Mutex.unlock();
+	omp_unset_nest_lock(&m_Mutex);
 }
 
 

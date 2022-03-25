@@ -5,6 +5,7 @@
 
 
 
+#include <omp.h>
 class cCriticalSection
 {
 	friend class cDeadlockDetect;  // Allow the DeadlockDetect to read the internals, so that it may output some statistics
@@ -42,7 +43,7 @@ private:
 	It is only ever read without the lock in the DeadlockDetect, where the server is terminating anyway. */
 	std::thread::id m_OwningThreadID;
 
-	std::recursive_mutex m_Mutex;
+	omp_nest_lock_t m_Mutex;
 };
 
 
