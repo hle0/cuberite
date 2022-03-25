@@ -269,3 +269,8 @@ make_symlink("${CMAKE_CURRENT_SOURCE_DIR}/../Server/Install/ThirdPartyLicenses" 
 # Create a folder for Bindings' documentation:
 FILE(MAKE_DIRECTORY "Bindings/docs")
 make_symlink("${CMAKE_CURRENT_SOURCE_DIR}/Bindings/docs" "${CMAKE_BINARY_DIR}/Server/BindingsDocs")
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+	target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX)
+endif()
