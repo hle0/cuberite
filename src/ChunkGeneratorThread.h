@@ -93,7 +93,7 @@ public:
 
 	void WaitForQueueEmpty();
 
-	size_t GetQueueLength() const;
+	size_t GetQueueLength();
 
 	int GetSeed() const;
 
@@ -114,6 +114,8 @@ private:
 		/** Callback to call after generating. */
 		cChunkCoordCallback * m_Callback;
 
+		QueueItem() : QueueItem(cChunkCoords(0, 0), false, nullptr) {};
+
 		QueueItem(cChunkCoords a_Coords, bool a_ForceRegeneration, cChunkCoordCallback * a_Callback):
 			m_Coords(a_Coords),
 			m_ForceRegeneration(a_ForceRegeneration),
@@ -122,13 +124,9 @@ private:
 		}
 	};
 
-	using Queue = std::list<QueueItem>;
+	using Queue = cQueue<QueueItem>;
 
-
-	/** CS protecting access to the queue. */
-	mutable cCriticalSection m_CS;
-
-	/** Queue of the chunks to be generated. Protected against multithreaded access by m_CS. */
+	/** Queue of the chunks to be generated. Protected against multithreaded access. */
 	Queue m_Queue;
 
 	/** Set when an item is added to the queue or the thread should terminate. */

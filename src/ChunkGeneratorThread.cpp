@@ -76,17 +76,13 @@ void cChunkGeneratorThread::QueueGenerateChunk(
 )
 {
 	ASSERT(m_ChunkSink->IsChunkQueued(a_Coords));
-
+	// Add to queue, issue a warning if too many:
+	auto size = m_Queue.Size();
+	if (size >= QUEUE_WARNING_LIMIT)
 	{
-		cCSLock Lock(m_CS);
-
-		// Add to queue, issue a warning if too many:
-		if (m_Queue.size() >= QUEUE_WARNING_LIMIT)
-		{
-			LOGWARN("WARNING: Adding chunk %s to generation queue; Queue is too big! (%zu)", a_Coords.ToString().c_str(), m_Queue.size());
-		}
-		m_Queue.emplace_back(a_Coords, a_ForceRegeneration, a_Callback);
+		LOGWARN("WARNING: Adding chunk %s to generation queue; Queue is too big! (%zu)", a_Coords.ToString().c_str(), size);
 	}
+	m_Queue.EnqueueItem(QueueItem(a_Coords, a_ForceRegeneration, a_Callback));
 
 	m_Event.Set();
 }
@@ -109,22 +105,16 @@ void cChunkGeneratorThread::GenerateBiomes(cChunkCoords a_Coords, cChunkDef::Bio
 
 void cChunkGeneratorThread::WaitForQueueEmpty(void)
 {
-	cCSLock Lock(m_CS);
-	while (!m_ShouldTerminate && !m_Queue.empty())
-	{
-		cCSUnlock Unlock(Lock);
-		m_evtRemoved.Wait();
-	}
+	m_Queue.BlockTillEmpty();
 }
 
 
 
 
 
-size_t cChunkGeneratorThread::GetQueueLength(void) const
+size_t cChunkGeneratorThread::GetQueueLength(void)
 {
-	cCSLock Lock(m_CS);
-	return m_Queue.size();
+	return m_Queue.Size();
 }
 
 
@@ -160,8 +150,8 @@ void cChunkGeneratorThread::Execute(void)
 
 	while (!m_ShouldTerminate)
 	{
-		cCSLock Lock(m_CS);
-		while (m_Queue.empty())
+		QueueItem item;
+		while (!m_Queue.TryDequeueItem(item))
 		{
 			if ((NumChunksGenerated > 16) && (clock() - LastReportTick > CLOCKS_PER_SEC))
 			{
@@ -170,7 +160,6 @@ void cChunkGeneratorThread::Execute(void)
 					NumChunksGenerated
 				); */
 			}
-			cCSUnlock Unlock(Lock);
 			m_Event.Wait();
 			if (m_ShouldTerminate)
 			{
@@ -181,17 +170,7 @@ void cChunkGeneratorThread::Execute(void)
 			LastReportTick = clock();
 		}
 
-		if (m_Queue.empty())
-		{
-			// Sometimes the queue remains empty
-			// If so, we can't do any front() operations on it!
-			continue;
-		}
-
-		auto item = m_Queue.front();  // Get next chunk from the queue
-		bool SkipEnabled = (m_Queue.size() > QUEUE_SKIP_LIMIT);
-		m_Queue.erase(m_Queue.begin());  // Remove the item from the queue
-		Lock.Unlock();  // Unlock ASAP
+		bool SkipEnabled = (m_Queue.Size() > QUEUE_SKIP_LIMIT);
 		m_evtRemoved.Set();
 
 		// Display perf info once in a while:
