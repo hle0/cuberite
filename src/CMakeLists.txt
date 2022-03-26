@@ -61,6 +61,7 @@ target_sources(
 	StatisticsManager.cpp
 	StringCompression.cpp
 	StringUtils.cpp
+	ThreadPool.cpp
 	UUID.cpp
 	VoronoiMap.cpp
 	WebAdmin.cpp
@@ -141,6 +142,7 @@ target_sources(
 	StatisticsManager.h
 	StringCompression.h
 	StringUtils.h
+	ThreadPool.h
 	UUID.h
 	Vector3.h
 	VoronoiMap.h
