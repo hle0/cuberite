@@ -188,6 +188,7 @@ cWorld::cWorld(
 	m_MinThunderStormTicks(3600),   // 3 real-world minutes   -+
 	m_MaxCactusHeight(3),
 	m_MaxSugarcaneHeight(4),
+	m_bCommandBlocksEnabled(true),
 	/* TODO: Enable when functionality exists again
 	m_IsBeetrootsBonemealable(true),
 	m_IsCactusBonemealable(false),
@@ -204,10 +205,10 @@ cWorld::cWorld(
 	m_IsBigFlowerBonemealable(true),
 	m_IsTallGrassBonemealable(true),
 	*/
-	m_bCommandBlocksEnabled(true),
 	m_bUseChatPrefixes(false),
 	m_TNTShrapnelLevel(slNone),
 	m_MaxViewDistance(12),
+	m_Generator(omp_get_num_procs()),
 	m_Scoreboard(this),
 	m_MapManager(this),
 	m_GeneratorCallbacks(*this),
