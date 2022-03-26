@@ -15,7 +15,7 @@ class cChunkDesc;
 
 /** The interface that all chunk generators must implement to provide the generated chunks.
 Also a static factory that creates the descendants based on INI file settings.
-The cChunkGeneratorThread uses this interface to generate chunks for a single world.
+The cChunkGeneratorThreadPool uses this interface to generate chunks for a single world.
 Ths calls to generate chunks are synchronous - they don't return until the chunk is fully generated. */
 class cChunkGenerator
 {

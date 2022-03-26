@@ -61,7 +61,6 @@ target_sources(
 	StatisticsManager.cpp
 	StringCompression.cpp
 	StringUtils.cpp
-	ThreadPool.cpp
 	UUID.cpp
 	VoronoiMap.cpp
 	WebAdmin.cpp

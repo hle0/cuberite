@@ -6,7 +6,6 @@
 
 
 
-
 /** If the generation queue size exceeds this number, a warning will be output */
 const size_t QUEUE_WARNING_LIMIT = 1000;
 
@@ -16,29 +15,16 @@ const size_t QUEUE_SKIP_LIMIT = 500;
 
 
 
-
-cChunkGeneratorThread::cChunkGeneratorThread(void) :
-	Super("Chunk Generator"),
-	m_Generator(nullptr),
-	m_PluginInterface(nullptr),
-	m_ChunkSink(nullptr)
-{
-}
+cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::cChunkGeneratorWorkerThread(cChunkGeneratorThreaded::cChunkGeneratorThreadPool * a_Pool) : Super("Chunk Generator", a_Pool)
+{}
 
 
 
 
 
-cChunkGeneratorThread::~cChunkGeneratorThread()
-{
-	Stop();
-}
 
 
-
-
-
-bool cChunkGeneratorThread::Initialize(cPluginInterface & a_PluginInterface, cChunkSink & a_ChunkSink, cIniFile & a_IniFile)
+bool cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::Initialize(cPluginInterface & a_PluginInterface, cChunkSink & a_ChunkSink, cIniFile & a_IniFile)
 {
 	m_PluginInterface = &a_PluginInterface;
 	m_ChunkSink = &a_ChunkSink;
@@ -56,43 +42,46 @@ bool cChunkGeneratorThread::Initialize(cPluginInterface & a_PluginInterface, cCh
 
 
 
-void cChunkGeneratorThread::Stop(void)
+bool cChunkGeneratorThreaded::cChunkGeneratorThreadPool::Initialize(cPluginInterface & a_PluginInterface, cChunkSink & a_ChunkSink, cIniFile & a_IniFile)
 {
-	m_ShouldTerminate = true;
-	m_Event.Set();
-	m_evtRemoved.Set();  // Wake up anybody waiting for empty queue
-	Super::Stop();
-	m_Generator.reset();
+	bool success = true;
+	std::for_each(
+		m_Workers.begin(),
+		m_Workers.end(),
+		[&a_PluginInterface, &a_ChunkSink, &a_IniFile, &success](auto worker)
+		{
+			success = success && worker->Initialize(a_PluginInterface, a_ChunkSink, a_IniFile);
+		}
+	);
+	return success;
 }
 
 
 
 
 
-void cChunkGeneratorThread::QueueGenerateChunk(
+void cChunkGeneratorThreaded::cChunkGeneratorThreadPool::QueueGenerateChunk(
 	cChunkCoords a_Coords,
 	bool a_ForceRegeneration,
 	cChunkCoordCallback * a_Callback
 )
 {
-	ASSERT(m_ChunkSink->IsChunkQueued(a_Coords));
 	// Add to queue, issue a warning if too many:
-	auto size = m_Queue.Size();
+	auto size = GetQueueLength();
 	if (size >= QUEUE_WARNING_LIMIT)
 	{
 		LOGWARN("WARNING: Adding chunk %s to generation queue; Queue is too big! (%zu)", a_Coords.ToString().c_str(), size);
 	}
-	m_Queue.EnqueueItem(QueueItem(a_Coords, a_ForceRegeneration, a_Callback));
-
-	m_Event.Set();
+	Submit(QueueItem(a_Coords, a_ForceRegeneration, a_Callback));
 }
 
 
 
 
 
-void cChunkGeneratorThread::GenerateBiomes(cChunkCoords a_Coords, cChunkDef::BiomeMap & a_BiomeMap)
+void cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::GenerateBiomes(cChunkCoords a_Coords, cChunkDef::BiomeMap & a_BiomeMap)
 {
+	cCSLock Lock(m_CS);
 	if (m_Generator != nullptr)
 	{
 		m_Generator->GenerateBiomes(a_Coords, a_BiomeMap);
@@ -103,25 +92,16 @@ void cChunkGeneratorThread::GenerateBiomes(cChunkCoords a_Coords, cChunkDef::Bio
 
 
 
-void cChunkGeneratorThread::WaitForQueueEmpty(void)
+void cChunkGeneratorThreaded::cChunkGeneratorThreadPool::GenerateBiomes(cChunkCoords a_Coords, cChunkDef::BiomeMap & a_BiomeMap)
 {
-	m_Queue.BlockTillEmpty();
+	m_Workers.front()->GenerateBiomes(a_Coords, a_BiomeMap);
 }
 
 
 
 
 
-size_t cChunkGeneratorThread::GetQueueLength(void)
-{
-	return m_Queue.Size();
-}
-
-
-
-
-
-int cChunkGeneratorThread::GetSeed() const
+int cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::GetSeed() const
 {
 	return m_Generator->GetSeed();
 }
@@ -130,7 +110,16 @@ int cChunkGeneratorThread::GetSeed() const
 
 
 
-EMCSBiome cChunkGeneratorThread::GetBiomeAt(int a_BlockX, int a_BlockZ)
+int cChunkGeneratorThreaded::cChunkGeneratorThreadPool::GetSeed() const
+{
+	return m_Workers.front()->GetSeed();
+}
+
+
+
+
+
+EMCSBiome cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::GetBiomeAt(int a_BlockX, int a_BlockZ)
 {
 	ASSERT(m_Generator != nullptr);
 	return m_Generator->GetBiomeAt(a_BlockX, a_BlockZ);
@@ -140,86 +129,55 @@ EMCSBiome cChunkGeneratorThread::GetBiomeAt(int a_BlockX, int a_BlockZ)
 
 
 
-void cChunkGeneratorThread::Execute(void)
+EMCSBiome cChunkGeneratorThreaded::cChunkGeneratorThreadPool::GetBiomeAt(int a_BlockX, int a_BlockZ)
 {
-	// To be able to display performance information, the generator counts the chunks generated.
-	// When the queue gets empty, the count is reset, so that waiting for the queue is not counted into the total time.
-	int NumChunksGenerated = 0;  // Number of chunks generated since the queue was last empty
-	clock_t GenerationStart = clock();  // Clock tick when the queue started to fill
-	clock_t LastReportTick = clock();  // Clock tick of the last report made (so that performance isn't reported too often)
-
-	while (!m_ShouldTerminate)
-	{
-		QueueItem item;
-		while (!m_Queue.TryDequeueItem(item))
-		{
-			if ((NumChunksGenerated > 16) && (clock() - LastReportTick > CLOCKS_PER_SEC))
-			{
-				/* LOG("Chunk generator performance: %.2f ch / sec (%d ch total)",
-					static_cast<double>(NumChunksGenerated) * CLOCKS_PER_SEC/ (clock() - GenerationStart),
-					NumChunksGenerated
-				); */
-			}
-			m_Event.Wait();
-			if (m_ShouldTerminate)
-			{
-				return;
-			}
-			NumChunksGenerated = 0;
-			GenerationStart = clock();
-			LastReportTick = clock();
-		}
-
-		bool SkipEnabled = (m_Queue.Size() > QUEUE_SKIP_LIMIT);
-		m_evtRemoved.Set();
-
-		// Display perf info once in a while:
-		if ((NumChunksGenerated > 512) && (clock() - LastReportTick > 2 * CLOCKS_PER_SEC))
-		{
-			LOG("Chunk generator performance: %.2f ch / sec (%d ch total)",
-				static_cast<double>(NumChunksGenerated) * CLOCKS_PER_SEC / (clock() - GenerationStart),
-				NumChunksGenerated
-			);
-			LastReportTick = clock();
-		}
-
-		// Skip the chunk if it's already generated and regeneration is not forced. Report as success:
-		if (!item.m_ForceRegeneration && m_ChunkSink->IsChunkValid(item.m_Coords))
-		{
-			LOGD("Chunk %s already generated, skipping generation", item.m_Coords.ToString().c_str());
-			if (item.m_Callback != nullptr)
-			{
-				item.m_Callback->Call(item.m_Coords, true);
-			}
-			continue;
-		}
-
-		// Skip the chunk if the generator is overloaded:
-		if (SkipEnabled && !m_ChunkSink->HasChunkAnyClients(item.m_Coords))
-		{
-			LOGWARNING("Chunk generator overloaded, skipping chunk %s", item.m_Coords.ToString().c_str());
-			if (item.m_Callback != nullptr)
-			{
-				item.m_Callback->Call(item.m_Coords, false);
-			}
-			continue;
-		}
-
-		// Generate the chunk:
-		DoGenerate(item.m_Coords);
-		if (item.m_Callback != nullptr)
-		{
-			item.m_Callback->Call(item.m_Coords, true);
-		}
-		NumChunksGenerated++;
-	}  // while (!bStop)
+	return m_Workers.front()->GetBiomeAt(a_BlockX, a_BlockZ);
 }
 
 
 
 
 
-void cChunkGeneratorThread::DoGenerate(cChunkCoords a_Coords)
+void cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::Process(QueueItem & a_Task)
+{
+	cCSLock Lock(m_CS);
+
+	bool SkipEnabled = (m_Queue.Size() > QUEUE_SKIP_LIMIT);
+	// Skip the chunk if it's already generated and regeneration is not forced. Report as success:
+	if (!a_Task.m_ForceRegeneration && m_ChunkSink->IsChunkValid(a_Task.m_Coords))
+	{
+		LOGD("Chunk %s already generated, skipping generation", a_Task.m_Coords.ToString().c_str());
+		if (a_Task.m_Callback != nullptr)
+		{
+			a_Task.m_Callback->Call(a_Task.m_Coords, true);
+		}
+		return;
+	}
+
+	// Skip the chunk if the generator is overloaded:
+	if (SkipEnabled && !m_ChunkSink->HasChunkAnyClients(a_Task.m_Coords))
+	{
+		LOGWARNING("Chunk generator overloaded, skipping chunk %s", a_Task.m_Coords.ToString().c_str());
+		if (a_Task.m_Callback != nullptr)
+		{
+			a_Task.m_Callback->Call(a_Task.m_Coords, false);
+		}
+		return;
+	}
+
+	// Generate the chunk:
+	DoGenerate(a_Task.m_Coords);
+	if (a_Task.m_Callback != nullptr)
+	{
+		a_Task.m_Callback->Call(a_Task.m_Coords, true);
+	}
+}
+
+
+
+
+
+void cChunkGeneratorThreaded::cChunkGeneratorWorkerThread::DoGenerate(cChunkCoords a_Coords)
 {
 	ASSERT(m_PluginInterface != nullptr);
 	ASSERT(m_ChunkSink != nullptr);
@@ -235,4 +193,19 @@ void cChunkGeneratorThread::DoGenerate(cChunkCoords a_Coords)
 	#endif
 
 	m_ChunkSink->OnChunkGenerated(ChunkDesc);
+}
+
+
+
+
+
+cChunkGeneratorThreaded::cChunkGeneratorThreadPool::cChunkGeneratorThreadPool(int numThreads)
+{
+	for (int i = 0; i < numThreads; i++)
+	{
+		m_Workers.push_back(
+			std::shared_ptr<
+				cChunkGeneratorThreaded::cChunkGeneratorWorkerThread>(
+				new cChunkGeneratorWorkerThread(this)));
+	}
 }

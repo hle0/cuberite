@@ -840,7 +840,7 @@ public:
 
 	// tolua_end
 
-	cChunkGeneratorThread & GetGenerator(void) { return m_Generator; }
+	cChunkGeneratorThreadPool & GetGenerator(void) { return m_Generator; }
 	cWorldStorage &   GetStorage  (void) { return m_Storage; }
 	cChunkMap *       GetChunkMap (void) { return &m_ChunkMap; }
 
@@ -907,8 +907,8 @@ private:
 
 	/** Implementation of the callbacks that the ChunkGenerator uses to store new chunks and interface to plugins */
 	class cChunkGeneratorCallbacks :
-		public cChunkGeneratorThread::cChunkSink,
-		public cChunkGeneratorThread::cPluginInterface
+		public cChunkGeneratorThreaded::cChunkSink,
+		public cChunkGeneratorThreaded::cPluginInterface
 	{
 		cWorld * m_World;
 
@@ -1067,7 +1067,7 @@ private:
 	AString m_LinkedEndWorldName;
 
 	/** The thread responsible for generating chunks. */
-	cChunkGeneratorThread m_Generator;
+	cChunkGeneratorThreadPool m_Generator;
 
 	cScoreboard      m_Scoreboard;
 	cMapManager      m_MapManager;
