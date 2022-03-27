@@ -1158,7 +1158,7 @@ void cFinishGenIce::GenFinish(cChunkDesc & a_ChunkDesc)
 int cFinishGenSingleTopBlock::GetNumToGen(const cChunkDef::BiomeMap & a_BiomeMap)
 {
 	int res = 0;
-	for (size_t i = 0; i < ARRAYCOUNT(a_BiomeMap); i++)
+	for (size_t i = 0; i < a_BiomeMap.size(); i++)
 	{
 		if (IsAllowedBiome(a_BiomeMap[i]))
 		{

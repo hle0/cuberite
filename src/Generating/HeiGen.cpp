@@ -84,7 +84,7 @@ protected:
 void cHeiGenFlat::GenHeightMap(cChunkCoords a_ChunkCoords, cChunkDef::HeightMap & a_HeightMap)
 {
 	UNUSED(a_ChunkCoords);
-	for (size_t i = 0; i < ARRAYCOUNT(a_HeightMap); i++)
+	for (size_t i = 0; i < a_HeightMap.size(); i++)
 	{
 		a_HeightMap[i] = m_Height;
 	}
@@ -152,7 +152,7 @@ void cHeiGenCache::GenHeightMap(cChunkCoords a_ChunkCoords, cChunkDef::HeightMap
 		m_CacheOrder[0] = Idx;
 
 		// Use the cached data:
-		memcpy(a_HeightMap, m_CacheData[Idx].m_HeightMap, sizeof(a_HeightMap));
+		a_HeightMap = m_CacheData[Idx].m_HeightMap;
 
 		m_NumHits++;
 		m_TotalChain += i;
@@ -170,7 +170,7 @@ void cHeiGenCache::GenHeightMap(cChunkCoords a_ChunkCoords, cChunkDef::HeightMap
 		m_CacheOrder[i] = m_CacheOrder[i - 1];
 	}  // for i - m_CacheOrder[]
 	m_CacheOrder[0] = Idx;
-	memcpy(m_CacheData[Idx].m_HeightMap, a_HeightMap, sizeof(a_HeightMap));
+	m_CacheData[Idx].m_HeightMap = a_HeightMap;
 	m_CacheData[Idx].m_Coords = a_ChunkCoords;
 }
 

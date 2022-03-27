@@ -486,7 +486,7 @@ bool cWSSAnvil::LoadBiomeMapFromNBT(cChunkDef::BiomeMap & a_BiomeMap, const cPar
 	}
 
 	const auto * const BiomeData = a_NBT.GetData(a_TagIdx);
-	for (size_t i = 0; i < ARRAYCOUNT(a_BiomeMap); i++)
+	for (size_t i = 0; i < a_BiomeMap.size(); i++)
 	{
 		if (BiomeData[i] > std::byte(EMCSBiome::biMaxVariantBiome))
 		{

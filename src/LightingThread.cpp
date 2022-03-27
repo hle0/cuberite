@@ -52,7 +52,7 @@ class cReader :
 	{
 		// Copy the entire heightmap, distribute it into the 3x3 chunk blob:
 		typedef struct {HEIGHTTYPE m_Row[16]; } ROW;
-		const ROW * InputRows  = reinterpret_cast<const ROW *>(a_Heightmap);
+		const ROW * InputRows  = reinterpret_cast<const ROW *>(a_Heightmap.data());
 		ROW * OutputRows = reinterpret_cast<ROW *>(m_HeightMap);
 		int InputIdx = 0;
 		int OutputIdx = m_ReadingChunkX + m_ReadingChunkZ * cChunkDef::Width * 3;
@@ -64,7 +64,7 @@ class cReader :
 
 		// Find the highest block in the entire chunk, use it as a base for m_MaxHeight:
 		HEIGHTTYPE MaxHeight = m_MaxHeight;
-		for (size_t i = 0; i < ARRAYCOUNT(a_Heightmap); i++)
+		for (size_t i = 0; i < a_Heightmap.size(); i++)
 		{
 			if (a_Heightmap[i] > MaxHeight)
 			{

@@ -330,8 +330,8 @@ void cChunk::GetAllData(cChunkDataCallback & a_Callback) const
 
 void cChunk::SetAllData(SetChunkData && a_SetChunkData)
 {
-	std::copy_n(a_SetChunkData.HeightMap, std::size(a_SetChunkData.HeightMap), m_HeightMap);
-	std::copy_n(a_SetChunkData.BiomeMap, std::size(a_SetChunkData.BiomeMap), m_BiomeMap);
+	m_HeightMap = std::move(a_SetChunkData.HeightMap);
+	m_BiomeMap = std::move(a_SetChunkData.BiomeMap);
 
 	m_BlockData = std::move(a_SetChunkData.BlockData);
 	m_LightData = std::move(a_SetChunkData.LightData);

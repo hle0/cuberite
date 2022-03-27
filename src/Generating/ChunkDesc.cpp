@@ -25,8 +25,8 @@ cChunkDesc::cChunkDesc(cChunkCoords a_Coords) :
 	memset(m_BlockTypes, 0, sizeof(cChunkDef::BlockTypes));
 	memset(m_BlockMeta,  0, sizeof(cChunkDef::BlockNibbles));
 	*/
-	memset(m_BiomeMap,   0, sizeof(cChunkDef::BiomeMap));
-	memset(m_HeightMap,  0, sizeof(cChunkDef::HeightMap));
+	m_BiomeMap = cChunkDef::BiomeMap {static_cast<EMCSBiome>(0)};
+	m_HeightMap = cChunkDef::HeightMap {static_cast<HEIGHTTYPE>(0)};
 }
 
 
@@ -397,7 +397,7 @@ void cChunkDesc::ReadBlockArea(cBlockArea & a_Dest, int a_MinRelX, int a_MaxRelX
 HEIGHTTYPE cChunkDesc::GetMaxHeight(void) const
 {
 	HEIGHTTYPE MaxHeight = m_HeightMap[0];
-	for (size_t i = 1; i < ARRAYCOUNT(m_HeightMap); i++)
+	for (size_t i = 1; i < m_HeightMap.size(); i++)
 	{
 		if (m_HeightMap[i] > MaxHeight)
 		{
@@ -414,7 +414,7 @@ HEIGHTTYPE cChunkDesc::GetMaxHeight(void) const
 HEIGHTTYPE cChunkDesc::GetMinHeight(void) const
 {
 	HEIGHTTYPE MinHeight = m_HeightMap[0];
-	for (size_t i = 1; i < ARRAYCOUNT(m_HeightMap); i++)
+	for (size_t i = 1; i < m_HeightMap.size(); i++)
 	{
 		if (m_HeightMap[i] < MinHeight)
 		{

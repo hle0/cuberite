@@ -112,12 +112,12 @@ public:
 	static const size_t NumSections = (cChunkDef::Height / SectionHeight);
 
 	/** The type used for any heightmap operations and storage; idx = x + Width * z; Height points to the highest non-air block in the column */
-	typedef HEIGHTTYPE HeightMap[Width * Width];
+	using HeightMap = std::array<HEIGHTTYPE, Width * Width>;
 
 	/** The type used for any biomemap operations and storage inside Cuberite,
 	using Cuberite biomes (need not correspond to client representation!)
 	idx = x + Width * z */
-	typedef EMCSBiome BiomeMap[Width * Width];
+	using BiomeMap = std::array<EMCSBiome, Width * Width>;
 
 	/** The type used for block type operations and storage, AXIS_ORDER ordering */
 	typedef BLOCKTYPE BlockTypes[NumBlocks];
