@@ -186,7 +186,7 @@ public:
 protected:
 	int     m_Width;
 	int     m_Height;
-	cLazyArray<cItem> m_Slots;
+	cLazyVector<cItem> m_Slots;
 
 	cListeners       m_Listeners;    ///< Listeners which should be notified on slot changes; the pointers are not owned by this object
 	cCriticalSection m_CSListeners;  ///< CS that guards the m_Listeners against multi-thread access
