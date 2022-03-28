@@ -10,6 +10,7 @@
 #pragma once
 
 #include "BiomeDef.h"
+#include "LazyArray.h"
 
 
 
@@ -112,12 +113,12 @@ public:
 	static const size_t NumSections = (cChunkDef::Height / SectionHeight);
 
 	/** The type used for any heightmap operations and storage; idx = x + Width * z; Height points to the highest non-air block in the column */
-	using HeightMap = std::array<HEIGHTTYPE, Width * Width>;
+	using HeightMap = cLazyArray<HEIGHTTYPE, Width * Width>;
 
 	/** The type used for any biomemap operations and storage inside Cuberite,
 	using Cuberite biomes (need not correspond to client representation!)
 	idx = x + Width * z */
-	using BiomeMap = std::array<EMCSBiome, Width * Width>;
+	using BiomeMap = cLazyArray<EMCSBiome, Width * Width>;
 
 	/** The type used for block type operations and storage, AXIS_ORDER ordering */
 	typedef BLOCKTYPE BlockTypes[NumBlocks];

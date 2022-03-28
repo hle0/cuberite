@@ -25,8 +25,8 @@ cChunkDesc::cChunkDesc(cChunkCoords a_Coords) :
 	memset(m_BlockTypes, 0, sizeof(cChunkDef::BlockTypes));
 	memset(m_BlockMeta,  0, sizeof(cChunkDef::BlockNibbles));
 	*/
-	m_BiomeMap = cChunkDef::BiomeMap {static_cast<EMCSBiome>(0)};
-	m_HeightMap = cChunkDef::HeightMap {static_cast<HEIGHTTYPE>(0)};
+	m_BiomeMap = cChunkDef::BiomeMap();
+	m_HeightMap = cChunkDef::HeightMap();
 }
 
 
