@@ -19,7 +19,7 @@
 template <class ElementType, size_t ElementCount, ElementType DefaultValue>
 struct ChunkDataStore
 {
-	using Type = std::array<ElementType, ElementCount>;
+	using Type = cLazyArray<ElementType, ElementCount>;
 
 	/** Copy assign from another ChunkDataStore. */
 	void Assign(const ChunkDataStore<ElementType, ElementCount, DefaultValue> & a_Other);
