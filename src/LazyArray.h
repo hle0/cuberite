@@ -1,16 +1,34 @@
 
 #pragma once
 
+template <typename T>
+struct DefaultValue
+{
+	constexpr static T Value()
+	{
+		return T{};
+	}
+};
+
+template <> struct DefaultValue<unsigned char>          { constexpr static unsigned char        Value() { return 0; } };
+template <> struct DefaultValue<signed char>            { constexpr static signed char          Value() { return 0; } };
+template <> struct DefaultValue<unsigned short>         { constexpr static unsigned short       Value() { return 0; } };
+template <> struct DefaultValue<signed short>           { constexpr static signed short         Value() { return 0; } };
+template <> struct DefaultValue<unsigned int>           { constexpr static unsigned int         Value() { return 0; } };
+template <> struct DefaultValue<signed int>             { constexpr static signed int           Value() { return 0; } };
+template <> struct DefaultValue<unsigned long>          { constexpr static unsigned long        Value() { return 0; } };
+template <> struct DefaultValue<signed long>            { constexpr static signed long          Value() { return 0; } };
+template <> struct DefaultValue<unsigned long long>     { constexpr static unsigned long long   Value() { return 0; } };
+template <> struct DefaultValue<signed long long>       { constexpr static signed long long	    Value() { return 0; } };
+
 /** A dynamic array that defers allocation to the first modifying access. Also has copy-on-write functionality.
 Const references from the array before allocation will all be to the same default constructed value.
 It is therefore important that default constructed values are indistinguishable from each other. */
-template <typename T>
+template <typename T, typename D = DefaultValue<T>>
 class cLazyVector
 {
 	static_assert((!std::is_reference<T>::value && !std::is_array<T>::value),
 		"cLazyVector<T>: T must be a value type");
-	static_assert(std::is_default_constructible<T>::value,
-		"cLazyVector<T>: T must be default constructible");
 public:
 	using value_type = T;
 	using pointer = T *;
@@ -79,7 +97,7 @@ public:
 	{
 		if (!IsStorageAllocated())
 		{
-			m_Array.reset(new std::vector<T>(m_Size));
+			m_Array.reset(new std::vector<T>(m_Size, D::Value()));
 		}
 		return m_Array->data();
 	}
@@ -89,9 +107,7 @@ public:
 		if (m_Array.use_count() > 1)
 		{
 			// Have to copy-on-write
-			auto old = std::move(m_Array);
-			m_Array = std::shared_ptr<std::vector<T>>(m_Array.get());
-			*m_Array = *old;
+			m_Array.reset(new std::vector<T>(*m_Array));
 		}
 		const cLazyVector * const_this = this;
 		return const_cast<T *>(const_this->data());
@@ -120,8 +136,8 @@ public:
 		}
 		else
 		{
-			static const T DefaultValue;
-			return DefaultValue;
+			static const T t = D::Value();
+			return t;
 		}
 	}
 
@@ -135,13 +151,11 @@ private:
 };
 
 /** Same as cLazyVector, but with a length known at compile-time. */
-template <typename T, int n>
+template <typename T, int n, typename D = DefaultValue<T>>
 class cLazyArray
 {
 	static_assert((!std::is_reference<T>::value && !std::is_array<T>::value),
 			"cLazyArray<T>: T must be a value type");
-	static_assert(std::is_default_constructible<T>::value,
-			"cLazyArray<T>: T must be default constructible");
 public:
 	using value_type = T;
 	using pointer = T *;
@@ -205,7 +219,7 @@ public:
 	{
 		if (!IsStorageAllocated())
 		{
-			m_Array.reset(new std::vector<T>(n));
+			m_Array.reset(new std::array<T, n>{D::Value()});
 		}
 		return m_Array->data();
 	}
@@ -215,9 +229,7 @@ public:
 		if (m_Array.use_count() > 1)
 		{
 			// Have to copy-on-write
-			auto old = std::move(m_Array);
-			m_Array = std::shared_ptr<std::array<T, n>>();
-			*m_Array = *old;
+			m_Array.reset(new std::array<T, n>(*m_Array));
 		}
 		const cLazyArray * const_this = this;
 		return const_cast<T *>(const_this->data());
@@ -245,8 +257,8 @@ public:
 		}
 		else
 		{
-			static const T DefaultValue;
-			return DefaultValue;
+			static const T t = D::Value();
+			return t;
 		}
 	}
 
